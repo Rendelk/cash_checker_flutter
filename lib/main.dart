@@ -1,122 +1,141 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const CashCheckerApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+enum AppTab { home, history, calendar, add, debts }
 
-  // This widget is the root of your application.
+class CashCheckerApp extends StatefulWidget {
+  const CashCheckerApp({super.key});
+
+  @override
+  State<CashCheckerApp> createState() => _CashCheckerAppState();
+}
+
+class _CashCheckerAppState extends State<CashCheckerApp> {
+  Locale _locale = const Locale('uk');
+  AppTab _tab = AppTab.home;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      debugShowCheckedModeBanner: false,
+      locale: _locale,
+      supportedLocales: const [Locale('uk'), Locale('en')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text(T.of(_locale, 'app_title')),
+          actions: [
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.language),
+              onSelected: (value) => setState(() => _locale = Locale(value)),
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'uk',
+                  child: Row(
+                    children: [
+                      if (_locale.languageCode == 'uk') const Icon(Icons.check, size: 18),
+                      const SizedBox(width: 8),
+                      const Text('Українська'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'en',
+                  child: Row(
+                    children: [
+                      if (_locale.languageCode == 'en') const Icon(Icons.check, size: 18),
+                      const SizedBox(width: 8),
+                      const Text('English'),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+        body: _buildPage(),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _tab.index,
+          onDestinationSelected: (i) => setState(() => _tab = AppTab.values[i]),
+          destinations: [
+            NavigationDestination(icon: const Icon(Icons.home), label: T.of(_locale, 'tab_home')),
+            NavigationDestination(icon: const Icon(Icons.history), label: T.of(_locale, 'tab_history')),
+            NavigationDestination(icon: const Icon(Icons.calendar_month), label: T.of(_locale, 'tab_calendar')),
+            NavigationDestination(icon: const Icon(Icons.add_circle), label: T.of(_locale, 'tab_add')),
+            NavigationDestination(icon: const Icon(Icons.receipt_long), label: T.of(_locale, 'tab_debts')),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildPage() {
+    switch (_tab) {
+      case AppTab.home:
+        return _Page(title: T.of(_locale, 'home_title'));
+      case AppTab.history:
+        return _Page(title: T.of(_locale, 'history_title'));
+      case AppTab.calendar:
+        return _Page(title: T.of(_locale, 'calendar_title'));
+      case AppTab.add:
+        return _Page(title: T.of(_locale, 'add_title'));
+      case AppTab.debts:
+        return _Page(title: T.of(_locale, 'debts_title'));
+    }
+  }
+}
+
+class _Page extends StatelessWidget {
+  final String title;
+  const _Page({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+class T {
+  static const Map<String, Map<String, String>> _m = {
+    'uk': {
+      'app_title': 'CashChecker',
+      'tab_home': 'Головна',
+      'tab_history': 'Історія',
+      'tab_calendar': 'Календар',
+      'tab_add': 'Додати',
+      'tab_debts': 'Борги',
+      'home_title': 'Головна',
+      'history_title': 'Історія',
+      'calendar_title': 'Календар',
+      'add_title': 'Додати операцію',
+      'debts_title': 'Борги',
+    },
+    'en': {
+      'app_title': 'CashChecker',
+      'tab_home': 'Home',
+      'tab_history': 'History',
+      'tab_calendar': 'Calendar',
+      'tab_add': 'Add',
+      'tab_debts': 'Debts',
+      'home_title': 'Home',
+      'history_title': 'History',
+      'calendar_title': 'Calendar',
+      'add_title': 'Add transaction',
+      'debts_title': 'Debts',
+    },
+  };
+
+  static String of(Locale locale, String key) {
+    return _m[locale.languageCode]?[key] ?? _m['en']![key] ?? key;
   }
 }
