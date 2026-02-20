@@ -48,6 +48,24 @@ class _CashCheckerAppState extends State<CashCheckerApp> {
     if (!mounted) return;
     setState(() => _showOnboarding = false);
   }
+
+  Widget _buildCurrentTab() {
+    switch (_tabIndex) {
+      case 0:
+        return HomePage(locale: _locale);
+      case 1:
+        return HistoryPage(locale: _locale);
+      case 2:
+        return CalendarPage(locale: _locale);
+      case 3:
+        return AddPage(locale: _locale);
+      case 4:
+        return DebtsPage(locale: _locale);
+      default:
+        return HomePage(locale: _locale);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -81,16 +99,7 @@ class _CashCheckerAppState extends State<CashCheckerApp> {
                       ),
                     ],
                   ),
-                  body: IndexedStack(
-                    index: _tabIndex,
-                    children: [
-                      HomePage(locale: _locale),
-                      HistoryPage(locale: _locale),
-                      CalendarPage(locale: _locale),
-                      AddPage(locale: _locale),
-                      DebtsPage(locale: _locale),
-                    ],
-                  ),
+                  body: _buildCurrentTab(),
                   bottomNavigationBar: NavigationBar(
                     selectedIndex: _tabIndex,
                     onDestinationSelected: (v) => setState(() => _tabIndex = v),
