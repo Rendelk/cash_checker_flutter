@@ -143,41 +143,57 @@ class _AddPageState extends State<AddPage> {
     _snack(S.of(widget.locale, 'account_added'));
   }
   Future<void> _saveTransaction() async {
-  if (_selectedAccountId == null) {
-    _snack(S.of(widget.locale, 'field_required'));
-    return;
+    if (_selectedAccountId == null) {
+      _snack(S.of(widget.locale, 'field_required'));
+      return;
+    }
+
+    final parsedAmount = double.tryParse(
+      _txAmount.text.replaceAll(',', '.').trim(),
+    );
+
+    if (parsedAmount == null || parsedAmount <= 0 || _selectedCategoryName == null) {
+      _snack(S.of(widget.locale, 'invalid_amount'));
+      return;
+    }
+
+    Account? account;
+    for (final a in _accounts) {
+      if (a.id == _selectedAccountId) {
+        account = a;
+        break;
+      }
+    }
+
+    if (account == null) {
+      await _load();
+      _snack(S.of(widget.locale, 'field_required'));
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      await _repo.addTransaction(
+        accountId: account.id,
+        type: _txType,
+        categoryRaw: _selectedCategoryName!,
+        currencyCode: account.currencyCode,
+        amount: parsedAmount,
+        note: _txNote.text.trim(),
+        createdAt: _txDate,
+      );
+
+      _txAmount.clear();
+      _txNote.clear();
+      _txDate = DateTime.now();
+      _snack(S.of(widget.locale, 'transaction_added'));
+    } catch (_) {
+      _snack(S.of(widget.locale, 'field_required'));
+    } finally {
+      if (!mounted) return;
+      setState(() => _saving = false);
+    }
   }
-
-  final parsedAmount = double.tryParse(
-    _txAmount.text.replaceAll(',', '.').trim(),
-  );
-
-  if (parsedAmount == null || parsedAmount <= 0 || _selectedCategoryName == null) {
-    _snack(S.of(widget.locale, 'invalid_amount'));
-    return;
-  }
-
-  final account = _accounts.firstWhere((a) => a.id == _selectedAccountId);
-
-  setState(() => _saving = true);
-  await _repo.addTransaction(
-    accountId: account.id,
-    type: _txType,
-    categoryRaw: _selectedCategoryName!,
-    currencyCode: account.currencyCode,
-    amount: parsedAmount,
-    note: _txNote.text.trim(),
-    createdAt: _txDate,
-  );
-
-  _txAmount.clear();
-  _txNote.clear();
-  _txDate = DateTime.now();
-
-  if (!mounted) return;
-  setState(() => _saving = false);
-  _snack(S.of(widget.locale, 'transaction_added'));
-}
 
   Future<void> _savePlanned() async {
   final title = _plannedTitle.text.trim();
