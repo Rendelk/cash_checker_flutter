@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'add_page.dart';
+import 'app_strings.dart';
+import 'calendar_page.dart';
+import 'debts_page.dart';
+import 'history_page.dart';
+import 'home_page.dart';
+import 'wallet_repository.dart';
+
 void main() {
   runApp(const CashCheckerApp());
 }
-
-enum AppTab { home, history, calendar, add, debts }
 
 class CashCheckerApp extends StatefulWidget {
   const CashCheckerApp({super.key});
@@ -15,9 +21,33 @@ class CashCheckerApp extends StatefulWidget {
 }
 
 class _CashCheckerAppState extends State<CashCheckerApp> {
-  Locale _locale = const Locale('uk');
-  AppTab _tab = AppTab.home;
+  final _repo = WalletRepository();
 
+  Locale _locale = const Locale('uk');
+  int _tabIndex = 0;
+  bool _ready = false;
+  bool _showOnboarding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final seen = await _repo.isOnboardingSeen();
+    if (!mounted) return;
+    setState(() {
+      _showOnboarding = !seen;
+      _ready = true;
+    });
+  }
+
+  Future<void> _finishOnboarding() async {
+    await _repo.setOnboardingSeen(true);
+    if (!mounted) return;
+    setState(() => _showOnboarding = false);
+  }
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -26,116 +56,200 @@ class _CashCheckerAppState extends State<CashCheckerApp> {
       supportedLocales: const [Locale('uk'), Locale('en')],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
       ],
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text(T.of(_locale, 'app_title')),
-          actions: [
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.language),
-              onSelected: (value) => setState(() => _locale = Locale(value)),
-              itemBuilder: (_) => [
-                PopupMenuItem(
-                  value: 'uk',
-                  child: Row(
+      home: !_ready
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          : _showOnboarding
+              ? _OnboardingView(
+                  locale: _locale,
+                  onChangeLocale: (l) => setState(() => _locale = l),
+                  onFinish: _finishOnboarding,
+                )
+              : Scaffold(
+                  appBar: AppBar(
+                    title: Text(S.of(_locale, 'app_title')),
+                    actions: [
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.language),
+                        onSelected: (v) => setState(() => _locale = Locale(v)),
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(value: 'uk', child: Text('Українська')),
+                          PopupMenuItem(value: 'en', child: Text('English')),
+                        ],
+                      ),
+                    ],
+                  ),
+                  body: IndexedStack(
+                    index: _tabIndex,
                     children: [
-                      if (_locale.languageCode == 'uk') const Icon(Icons.check, size: 18),
-                      const SizedBox(width: 8),
-                      const Text('Українська'),
+                      HomePage(locale: _locale),
+                      HistoryPage(locale: _locale),
+                      CalendarPage(locale: _locale),
+                      AddPage(locale: _locale),
+                      DebtsPage(locale: _locale),
+                    ],
+                  ),
+                  bottomNavigationBar: NavigationBar(
+                    selectedIndex: _tabIndex,
+                    onDestinationSelected: (v) => setState(() => _tabIndex = v),
+                    destinations: [
+                      NavigationDestination(
+                        icon: const Icon(Icons.home),
+                        label: S.of(_locale, 'tab_home'),
+                      ),
+                      NavigationDestination(
+                        icon: const Icon(Icons.history),
+                        label: S.of(_locale, 'tab_history'),
+                      ),
+                      NavigationDestination(
+                        icon: const Icon(Icons.calendar_month),
+                        label: S.of(_locale, 'tab_calendar'),
+                      ),
+                      NavigationDestination(
+                        icon: const Icon(Icons.add_circle),
+                        label: S.of(_locale, 'tab_add'),
+                      ),
+                      NavigationDestination(
+                        icon: const Icon(Icons.receipt_long),
+                        label: S.of(_locale, 'tab_debts'),
+                      ),
                     ],
                   ),
                 ),
-                PopupMenuItem(
-                  value: 'en',
-                  child: Row(
+    );
+  }
+}
+
+class _OnboardingView extends StatefulWidget {
+  final Locale locale;
+  final ValueChanged<Locale> onChangeLocale;
+  final VoidCallback onFinish;
+
+  const _OnboardingView({
+    required this.locale,
+    required this.onChangeLocale,
+    required this.onFinish,
+  });
+
+  @override
+  State<_OnboardingView> createState() => _OnboardingViewState();
+}
+
+class _OnboardingViewState extends State<_OnboardingView> {
+  final _controller = PageController();
+  int _page = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = [
+      (
+        S.of(widget.locale, 'onboarding_title_1'),
+        S.of(widget.locale, 'onboarding_body_1'),
+        Icons.account_balance_wallet_outlined
+      ),
+      (
+        S.of(widget.locale, 'onboarding_title_2'),
+        S.of(widget.locale, 'onboarding_body_2'),
+        Icons.pie_chart_outline
+      ),
+      (
+        S.of(widget.locale, 'onboarding_title_3'),
+        S.of(widget.locale, 'onboarding_body_3'),
+        Icons.calendar_month_outlined
+      ),
+    ];
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(S.of(widget.locale, 'app_title')),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.language),
+            onSelected: (v) => widget.onChangeLocale(Locale(v)),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'uk', child: Text('Українська')),
+              PopupMenuItem(value: 'en', child: Text('English')),
+            ],
+          ),
+          TextButton(
+            onPressed: widget.onFinish,
+            child: Text(S.of(widget.locale, 'skip')),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: PageView.builder(
+              controller: _controller,
+              itemCount: pages.length,
+              onPageChanged: (i) => setState(() => _page = i),
+              itemBuilder: (_, i) {
+                final p = pages[i];
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (_locale.languageCode == 'en') const Icon(Icons.check, size: 18),
-                      const SizedBox(width: 8),
-                      const Text('English'),
+                      Icon(p.$3, size: 96),
+                      const SizedBox(height: 24),
+                      Text(
+                        p.$1,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        p.$2,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 16),
+                      ),
                     ],
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            child: Row(
+              children: [
+                ...List.generate(
+                  pages.length,
+                  (i) => Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(right: 6),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: i == _page ? Colors.black : Colors.black26,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                FilledButton(
+                  onPressed: () async {
+                    if (_page == pages.length - 1) {
+                      widget.onFinish();
+                    } else {
+                      await _controller.nextPage(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOut,
+                      );
+                    }
+                  },
+                  child: Text(
+                    _page == pages.length - 1
+                        ? S.of(widget.locale, 'start')
+                        : S.of(widget.locale, 'next'),
                   ),
                 ),
               ],
             ),
-          ],
-        ),
-        body: _buildPage(),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _tab.index,
-          onDestinationSelected: (i) => setState(() => _tab = AppTab.values[i]),
-          destinations: [
-            NavigationDestination(icon: const Icon(Icons.home), label: T.of(_locale, 'tab_home')),
-            NavigationDestination(icon: const Icon(Icons.history), label: T.of(_locale, 'tab_history')),
-            NavigationDestination(icon: const Icon(Icons.calendar_month), label: T.of(_locale, 'tab_calendar')),
-            NavigationDestination(icon: const Icon(Icons.add_circle), label: T.of(_locale, 'tab_add')),
-            NavigationDestination(icon: const Icon(Icons.receipt_long), label: T.of(_locale, 'tab_debts')),
-          ],
-        ),
+          ),
+        ],
       ),
     );
-  }
-
-  Widget _buildPage() {
-    switch (_tab) {
-      case AppTab.home:
-        return _Page(title: T.of(_locale, 'home_title'));
-      case AppTab.history:
-        return _Page(title: T.of(_locale, 'history_title'));
-      case AppTab.calendar:
-        return _Page(title: T.of(_locale, 'calendar_title'));
-      case AppTab.add:
-        return _Page(title: T.of(_locale, 'add_title'));
-      case AppTab.debts:
-        return _Page(title: T.of(_locale, 'debts_title'));
-    }
-  }
-}
-
-class _Page extends StatelessWidget {
-  final String title;
-  const _Page({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-    );
-  }
-}
-
-class T {
-  static const Map<String, Map<String, String>> _m = {
-    'uk': {
-      'app_title': 'CashChecker',
-      'tab_home': 'Головна',
-      'tab_history': 'Історія',
-      'tab_calendar': 'Календар',
-      'tab_add': 'Додати',
-      'tab_debts': 'Борги',
-      'home_title': 'Головна',
-      'history_title': 'Історія',
-      'calendar_title': 'Календар',
-      'add_title': 'Додати операцію',
-      'debts_title': 'Борги',
-    },
-    'en': {
-      'app_title': 'CashChecker',
-      'tab_home': 'Home',
-      'tab_history': 'History',
-      'tab_calendar': 'Calendar',
-      'tab_add': 'Add',
-      'tab_debts': 'Debts',
-      'home_title': 'Home',
-      'history_title': 'History',
-      'calendar_title': 'Calendar',
-      'add_title': 'Add transaction',
-      'debts_title': 'Debts',
-    },
-  };
-
-  static String of(Locale locale, String key) {
-    return _m[locale.languageCode]?[key] ?? _m['en']![key] ?? key;
   }
 }
